@@ -142,4 +142,161 @@ function initBlocks() {
   blocks = [];
   for (let row = 0; row < blockConfig.rows; row++) {
     for (let col = 0; col < blockConfig.cols; col++) {
-      const x =
+      const x = blockConfig.offsetLeft + col * (blockConfig.width + blockConfig.padding);
+      const y = blockConfig.offsetTop + row * (blockConfig.height + blockConfig.padding);
+      blocks.push({
+        x: x,
+        y: y,
+        width: blockConfig.width,
+        height: blockConfig.height,
+        color: ['#ff0000', '#ffaa00', '#ffff00', '#00ff00'][row],
+        hit: false
+      });
+    }
+  }
+}
+
+// Input handling
+window.addEventListener('keydown', (e) => {
+  keys[e.key] = true;
+  if (e.key === ' ') {
+    e.preventDefault();
+    if (!ball.launched && !gameOver && !gameWon) {
+      ball.dx = (Math.random() > 0.5 ? 1 : -1) * ball.speed * 0.7;
+      ball.dy = -ball.speed;
+      ball.launched = true;
+    }
+  }
+});
+window.addEventListener('keyup', (e) => {
+  keys[e.key] = false;
+});
+
+function update() {
+  if (gameOver || gameWon) return;
+
+  // Paddle movement
+  if (keys['ArrowLeft'] && paddle.x > 0) {
+    paddle.x -= paddle.dx;
+  }
+  if (keys['ArrowRight'] && paddle.x < canvas.width - paddle.width) {
+    paddle.x += paddle.dx;
+  }
+
+  // Ball physics
+  if (ball.launched) {
+    ball.x += ball.dx;
+    ball.y += ball.dy;
+
+    // Wall collision
+    if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) {
+      ball.dx *= -1;
+      ball.x = Math.max(ball.radius, Math.min(canvas.width - ball.radius, ball.x));
+    }
+    if (ball.y - ball.radius < 0) {
+      ball.dy *= -1;
+      ball.y = ball.radius;
+    }
+
+    // Bottom collision (lose)
+    if (ball.y - ball.radius > canvas.height) {
+      gameOver = true;
+      document.getElementById('gameOverText').textContent = 'GAME OVER';
+      document.getElementById('gameOverScreen').style.display = 'block';
+      document.getElementById('finalScore').textContent = 'Score: ' + score;
+    }
+
+    // Paddle collision
+    if (ball.y + ball.radius > paddle.y &&
+        ball.y - ball.radius < paddle.y + paddle.height &&
+        ball.x > paddle.x &&
+        ball.x < paddle.x + paddle.width) {
+      ball.dy = -ball.speed;
+      const hitPos = (ball.x - paddle.x) / paddle.width;
+      ball.dx = (hitPos - 0.5) * ball.speed * 2;
+    }
+
+    // Block collision
+    for (let block of blocks) {
+      if (!block.hit &&
+          ball.x > block.x &&
+          ball.x < block.x + block.width &&
+          ball.y > block.y &&
+          ball.y < block.y + block.height) {
+        block.hit = true;
+        ball.dy *= -1;
+        score += 10;
+        document.getElementById('score').textContent = 'Score: ' + score;
+      }
+    }
+
+    // Check win condition
+    if (blocks.every(b => b.hit)) {
+      gameWon = true;
+      document.getElementById('gameOverText').textContent = 'CLEAR!';
+      document.getElementById('gameOverScreen').style.display = 'block';
+      document.getElementById('finalScore').textContent = 'Score: ' + score;
+    }
+  } else {
+    // Ball follows paddle before launch
+    ball.x = paddle.x + paddle.width / 2;
+    ball.y = paddle.y - ball.radius - 10;
+  }
+}
+
+function draw() {
+  // Clear
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Paddle
+  ctx.fillStyle = '#00ff00';
+  ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+
+  // Ball
+  ctx.fillStyle = '#ffff00';
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Blocks
+  for (let block of blocks) {
+    if (!block.hit) {
+      ctx.fillStyle = block.color;
+      ctx.fillRect(block.x, block.y, block.width, block.height);
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(block.x, block.y, block.width, block.height);
+    }
+  }
+}
+
+function gameLoop() {
+  update();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+// Restart
+document.getElementById('restartButton').addEventListener('click', () => {
+  paddle.x = canvas.width / 2 - 50;
+  ball.x = canvas.width / 2;
+  ball.y = canvas.height - 60;
+  ball.dx = 0;
+  ball.dy = 0;
+  ball.launched = false;
+  score = 0;
+  gameOver = false;
+  gameWon = false;
+  document.getElementById('gameOverScreen').style.display = 'none';
+  document.getElementById('score').textContent = 'Score: 0';
+  initBlocks();
+});
+
+// Initialize
+initBlocks();
+gameLoop();
+</script>
+
+</body>
+</html>
